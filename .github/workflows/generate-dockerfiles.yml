@@ -19,7 +19,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update versions
-        run: ./version.sh
+        run: ./versions.sh
 
       - name: Apply templates
         run: ./apply-templates.sh
