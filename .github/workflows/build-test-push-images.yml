@@ -1,0 +1,49 @@
+name: "Build Test and Push Docker Images"
+
+on:
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+  # schedule:
+  #   - cron: '0 14 * * 1'  # Runs every Monday at 10:00 AM EDT
+
+jobs:
+  prepare_matrix:
+    name: Prepare Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          matrix=$(jq -c '
+            to_entries[] |
+            select(.value != null) |
+            {
+              minor_version: .key,
+              full_version: .value.version,
+              variants: .value.variants
+            } |
+            .variants[] as $variant |
+            {
+              minor_version,
+              full_version,
+              variant: $variant
+            }
+          ' versions.json)
+          echo "::set-output name=matrix::$matrix"
+
+  build_test_push:
+    name: Build Test and Push Images
+    needs: prepare_matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.prepare_matrix.outputs.matrix) }}
+
+    steps:
+      - name: Print placeholder message
+        run: |
+          echo "TODO: build test and push ${matrix.full_version} / ${matrix.minor_version} / ${matrix.variant}"
