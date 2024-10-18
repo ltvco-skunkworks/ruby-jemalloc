@@ -6,19 +6,19 @@ on:
   #   - cron: '0 14 * * 1'  # Runs every Monday at 10:00 AM EDT
 
 jobs:
-  prepare_matrix:
-    name: Prepare Matrix
+  define_jobs:
+    name: Define Jobs
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      jobs: ${{ steps.generate-jobs.outputs.jobs }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Generate Matrix
-        id: set-matrix
+      - name: Generate jobs
+        id: generate-jobs
         run: |
-          matrix=$(jq -c '
+          jobs=$(jq -c '
             to_entries[] |
             select(.value != null) |
             {
@@ -33,17 +33,17 @@ jobs:
               variant: $variant
             }
           ' versions.json)
-          echo "::set-output name=matrix::$matrix"
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
   build_test_push:
     name: Build Test and Push Images
-    needs: prepare_matrix
+    needs: define_jobs
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include: ${{ fromJson(needs.prepare_matrix.outputs.matrix) }}
+        job: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
 
     steps:
-      - name: Print placeholder message
+      - name: Print placeholder message for ${{ matrix.patch_version }}
         run: |
-          echo "TODO: build test and push ${matrix.full_version} / ${matrix.minor_version} / ${matrix.variant}"
+          echo "TODO: build test and push ${matrix.job.patch_version} / ${matrix.job.minor_version} / ${matrix.job.variant}"
