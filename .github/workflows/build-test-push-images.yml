@@ -33,7 +33,7 @@ jobs:
               variant: $variant
             }
           ' versions.json | jq -s '.')
-          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
     name: Build Test and Push Images
