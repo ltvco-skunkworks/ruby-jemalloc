@@ -36,13 +36,12 @@ jobs:
           echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
-    name: Build Test and Push Images
+    name: "Build Test and Push Ruby ${{ matrix.full_version}} for ${{ matrix.variant }}"
     needs: define_jobs
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
-
     steps:
       - name: Debug Matrix
         run: echo "${{ toJson(matrix) }}"
