@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        job: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
+        include: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
 
     steps:
       - name: Debug Matrix
