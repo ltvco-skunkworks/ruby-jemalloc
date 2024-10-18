@@ -44,6 +44,9 @@ jobs:
         job: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
 
     steps:
+      - name: Debug Matrix
+        run: echo "${{ toJson(matrix) }}"
+
       - name: Print placeholder message for ${{ matrix.full_version }}
         run: |
           echo "TODO: build test and push ${{ matrix.full_version }} / ${{ matrix.minor_version }} / ${{ matrix.variant }}"
