@@ -18,18 +18,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Update versions
-      run: ./version.sh
+      - name: Update versions
+        run: ./version.sh
 
-    - name: Apply templates
-      run: ./apply-templates.sh
+      - name: Apply templates
+        run: ./apply-templates.sh
 
-    - name: Commit and push changes
-      run: |
-        git add .
-        if ! git diff --quiet --staged; then
-          git commit -m "Updates auto-generated Dockerfiles"
-          git push origin master
-        else
-          echo "No changes detected."
-        fi
+      - name: Commit and push changes
+        run: |
+          git add .
+          if ! git diff --quiet --staged; then
+            git commit -m "Updates auto-generated Dockerfiles"
+            git push origin master
+          else
+            echo "No changes detected."
+          fi
