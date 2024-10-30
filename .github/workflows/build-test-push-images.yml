@@ -15,21 +15,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Generate jobs
+      # - name: Generate jobs
+        # id: generate-jobs
+        # run: |
+          # jobs=$(jq -c '
+            # to_entries[] |
+            # select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
+            # select(.value != null) | # Exclude empty versions
+            # .value.variants[] as $variant |
+            # {
+              # minor_version: .key,
+              # patch_version: .value.version,
+              # variant: $variant
+            # }
+          # ' versions.json | jq -s '.')
+          # echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
+
+      # Temporary generate-jobs step to create a single job for testing
+      - name: Generate Jobs
         id: generate-jobs
         run: |
-          jobs=$(jq -c '
-            to_entries[] |
-            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
-            select(.value != null) | # Exclude empty versions
-            .value.variants[] as $variant |
-            {
-              minor_version: .key,
-              patch_version: .value.version,
-              variant: $variant
-            }
-          ' versions.json | jq -s '.')
-          echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
+          jobs=$(jq -n -c '[{
+            "minor_version": "3.1",
+            "patch_version": "3.1.6",
+            "variant": "slim-bullseye"
+          }]')
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
   build_test_push:
     name: "Build Test and Push Ruby ${{ matrix.patch_version}} for ${{ matrix.variant }}"
