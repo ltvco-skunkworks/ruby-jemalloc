@@ -22,15 +22,10 @@ jobs:
             to_entries[] |
             select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
             select(.value != null) | # Exclude empty versions
+            .value.variants[] as $variant |
             {
               minor_version: .key,
               patch_version: .value.version,
-              variants: .value.variants
-            } |
-            .variants[] as $variant |
-            {
-              minor_version,
-              patch_version,
               variant: $variant
             }
           ' versions.json | jq -s '.')
