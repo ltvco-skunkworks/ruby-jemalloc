@@ -20,29 +20,30 @@ jobs:
         run: |
           jobs=$(jq -c '
             to_entries[] |
-            select(.value != null) |
+            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
+            select(.value != null) | # Exclude empty versions
             {
               minor_version: .key,
-              full_version: .value.version,
+              patch_version: .value.version,
               variants: .value.variants
             } |
             .variants[] as $variant |
             {
               minor_version,
-              full_version,
+              patch_version,
               variant: $variant
             }
           ' versions.json | jq -s '.')
           echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
-    name: "Build Test and Push Ruby ${{ matrix.full_version}} for ${{ matrix.variant }}"
+    name: "Build Test and Push Ruby ${{ matrix.patch_version}} for ${{ matrix.variant }}"
     needs: define_jobs
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
     steps:
-      - name: Print placeholder message for ${{ matrix.full_version }}
+      - name: Print placeholder message for ${{ matrix.patch_version }}
         run: |
-          echo "TODO: build test and push ${{ matrix.full_version }} / ${{ matrix.minor_version }} / ${{ matrix.variant }}"
+          echo "TODO: build test and push ${{ matrix.patch_version }} / ${{ matrix.minor_version }} / ${{ matrix.variant }}"
