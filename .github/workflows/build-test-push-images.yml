@@ -53,8 +53,6 @@ jobs:
       PATCH_VERSION_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc
       MINOR_VERSION_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc
     steps:
-      - name: Checkout repository
-    steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
