@@ -31,16 +31,27 @@ jobs:
           # ' versions.json | jq -s '.')
           # echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
 
-      # Temporary generate-jobs step to create a single job for testing
+      # For testing: only generate 3.1.6 slim-bullseye job
+      # - name: Generate Jobs
+        # id: generate-jobs
+        # run: |
+          # jobs=$(jq -n -c '[{
+            # "minor_version": "3.1",
+            # "patch_version": "3.1.6",
+            # "variant": "slim-bullseye"
+          # }]')
+          # echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      # For testing: only generate 3.1.6 alpine3.20 job
       - name: Generate Jobs
         id: generate-jobs
         run: |
           jobs=$(jq -n -c '[{
             "minor_version": "3.1",
             "patch_version": "3.1.6",
-            "variant": "slim-bullseye"
-          }]')
-          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+            "variant": "alpine3.20"
+            }]')
+            echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
   build_test_push:
     name: "Build Test and Push Ruby ${{ matrix.patch_version}} for ${{ matrix.variant }}"
@@ -103,11 +114,11 @@ jobs:
             exit 1
           fi
 
-      # Commenting out for now due to time it takes to build and push
-      # - name: Build multi-platform and push to DockerHub
-        # uses: docker/build-push-action@v6
-        # with:
-          # context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          # platforms: linux/amd64,linux/arm64
-          # push: true
-          # tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
+      # Comment out below to skip the time-intensive multi-arch build and push
+      - name: Build multi-platform and push to DockerHub
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.minor_version }}/${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
