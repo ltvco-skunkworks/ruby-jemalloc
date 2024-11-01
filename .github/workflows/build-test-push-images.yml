@@ -75,8 +75,14 @@ jobs:
 
       - name: Run Ruby smoke test
         run: |
+          set -x  # Enable debug mode
           expected_output="Hello World!"
           actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"' | tee)
+          echo "Exit Code: $?"
+          if [ -z "$actual_output" ]; then
+            echo "Error: actual_output is empty, indicating that docker run may have failed"
+            exit 1
+          fi
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
             exit 1
