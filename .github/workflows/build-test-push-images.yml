@@ -73,14 +73,29 @@ jobs:
           load: true # Load the image into the local Docker cache for testing
           tags: ${{ env.PATCH_VERSION_TAG }}
 
-      # TODO: Add better smoke tests
-      - name: Test Docker image
-        run: docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -v
+      - name: Run Ruby smoke test
+        run: |
+          expected_output="Hello World!"
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"')
+          if [ "$actual_output" != "$expected_output" ]; then
+            echo "Failure: expected \"$expected_output\", got \"$actual_output\""
+            exit 1
+          fi
 
-      - name: Build multi-platform and push to DockerHub
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
+      - name: Run Jemalloc smoke test
+        run: |
+          expected_output="Jemalloc enabled"
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
+          if [ "$actual_output" != "$expected_output" ]; then
+            echo "Failure: expected \"$expected_output\", got \"$actual_output\""
+            exit 1
+          fi
+
+      # Commenting out for now due to time it takes to build and push
+      # - name: Build multi-platform and push to DockerHub
+        # uses: docker/build-push-action@v6
+        # with:
+          # context: ${{ matrix.minor_version }}/${{ matrix.variant }}
+          # platforms: linux/amd64,linux/arm64
+          # push: true
+          # tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
