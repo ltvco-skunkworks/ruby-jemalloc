@@ -70,7 +70,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          dockerfile: Dockerfile
           load: true # Load the image into the local Docker cache for testing
           tags: ${{ env.PATCH_VERSION_TAG }}
 
@@ -82,7 +81,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          dockerfile: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
