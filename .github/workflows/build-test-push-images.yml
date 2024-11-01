@@ -75,14 +75,9 @@ jobs:
 
       - name: Run Ruby smoke test
         run: |
-          set -x  # Enable debug mode
           expected_output="Hello World!"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"' | tee)
-          echo "Exit Code: $?"
-          if [ -z "$actual_output" ]; then
-            echo "Error: actual_output is empty, indicating that docker run may have failed"
-            exit 1
-          fi
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"')
+          echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
             exit 1
@@ -91,7 +86,8 @@ jobs:
       - name: Run Jemalloc build config smoke test
         run: |
           expected_output="Jemalloc enabled"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"' | tee)
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
+          echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
             exit 1
@@ -100,9 +96,10 @@ jobs:
       - name: Run Jemalloc runtime stats smoke test
         run: |
           expected_output_pattern="jemalloc statistics"
-          actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_TAG }} ruby -e 'exit' | tee)
+          actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_TAG }} ruby -e 'exit' 2>&1)
+          echo "$actual_output"
           if ! echo "$actual_output" | grep -q "$expected_output_pattern"; then
-            echo "Failure: expected output to contain \"jemalloc\""
+            echo "Failure: expected output to contain \"$expected_output_pattern\""
             exit 1
           fi
 
