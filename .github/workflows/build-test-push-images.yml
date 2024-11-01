@@ -76,18 +76,27 @@ jobs:
       - name: Run Ruby smoke test
         run: |
           expected_output="Hello World!"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"')
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"' | tee)
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
             exit 1
           fi
 
-      - name: Run Jemalloc smoke test
+      - name: Run Jemalloc build config smoke test
         run: |
           expected_output="Jemalloc enabled"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"' | tee)
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
+            exit 1
+          fi
+
+      - name: Run Jemalloc runtime stats smoke test
+        run: |
+          expected_output_pattern="jemalloc statistics"
+          actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_TAG }} ruby -e 'exit' | tee)
+          if ! echo "$actual_output" | grep -q "$expected_output_pattern"; then
+            echo "Failure: expected output to contain \"jemalloc\""
             exit 1
           fi
 
