@@ -44,7 +44,15 @@ RUN set -eux; \
 	apt-mark hold libjemalloc-dev; \
 	rm -rf /var/lib/apt/lists/*
 
-{{ ) else "" end -}}
+{{ ) else ( -}}
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libjemalloc-dev \
+	; \
+	apt-mark hold libjemalloc-dev; \
+	rm -rf /var/lib/apt/lists/*
+{{ ) end -}}
 # skip installing gem documentation
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
