@@ -111,14 +111,15 @@ jobs:
           echo "MINOR_VERSION_TAG=$MINOR_VERSION_TAG" >> $GITHUB_ENV
 
       # Comment out below to skip the time-intensive multi-arch build and push
-      # - name: Build multi-platform and push to DockerHub
-        # uses: docker/build-push-action@v6
-        # with:
-          # context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          # platforms: linux/amd64,linux/arm64
-          # push: true
-          # tags: |
-            # ${{ env.PATCH_VERSION_VARIANT_TAG }}
-            # ${{ env.MINOR_VERSION_VARIANT_TAG }}
-            # ${{ env.PATCH_VERSION_TAG }}
-            # ${{ env.MINOR_VERSION_TAG }}
+      - name: Build multi-platform and push to DockerHub
+        if: ${{ matrix.minor_version == '3.1' && matrix.variant == 'slim-bookworm' }} # For testing purposes
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.minor_version }}/${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.PATCH_VERSION_VARIANT_TAG }}
+            ${{ env.MINOR_VERSION_VARIANT_TAG }}
+            ${{ env.PATCH_VERSION_TAG }}
+            ${{ env.MINOR_VERSION_TAG }}
