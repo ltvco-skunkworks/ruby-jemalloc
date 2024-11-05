@@ -24,7 +24,7 @@ jobs:
             select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
             select(.value != null) | # Exclude empty versions
             .value.variants[] as $variant |
-            select($variant | index($target_variants) != null) | # Only include target variants
+            select($target_variants | index($variant) != null) | # Only include target variants
             {
               minor_version: .key,
               patch_version: .value.version,
