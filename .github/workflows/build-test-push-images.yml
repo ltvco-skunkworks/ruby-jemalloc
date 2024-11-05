@@ -15,43 +15,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # - name: Generate jobs
-        # id: generate-jobs
-        # run: |
-          # jobs=$(jq -c '
-            # to_entries[] |
-            # select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
-            # select(.value != null) | # Exclude empty versions
-            # .value.variants[] as $variant |
-            # {
-              # minor_version: .key,
-              # patch_version: .value.version,
-              # variant: $variant
-            # }
-          # ' versions.json | jq -s '.')
-          # echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
-
-      # For testing: only generate 3.1.6 slim-bullseye job
-      # - name: Generate Jobs
-        # id: generate-jobs
-        # run: |
-          # jobs=$(jq -n -c '[{
-            # "minor_version": "3.1",
-            # "patch_version": "3.1.6",
-            # "variant": "slim-bullseye"
-          # }]')
-          # echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
-
-      # For testing: only generate 3.1.6 alpine3.20 job
-      - name: Generate Jobs
+      - name: Generate jobs
         id: generate-jobs
         run: |
-          jobs=$(jq -n -c '[{
-            "minor_version": "3.1",
-            "patch_version": "3.1.6",
-            "variant": "alpine3.20"
-            }]')
-            echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          jobs=$(jq -c '
+            ["bookworm", "slim-bookworm", "alpine3.20"] as $target_variants |
+            to_entries[] |
+            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
+            select(.value != null) | # Exclude empty versions
+            .value.variants[] as $variant |
+            select($variant | index($target_variants) != null) | # Only include target variants
+            {
+              minor_version: .key,
+              patch_version: .value.version,
+              variant: $variant
+            }
+          ' versions.json | jq -s '.')
+          echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
     name: "Build Test and Push Ruby ${{ matrix.patch_version}} for ${{ matrix.variant }}"
@@ -61,8 +41,8 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
     env:
-      PATCH_VERSION_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc
-      MINOR_VERSION_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc
+      PATCH_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc
+      MINOR_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -82,12 +62,12 @@ jobs:
         with:
           context: ${{ matrix.minor_version }}/${{ matrix.variant }}
           load: true # Load the image into the local Docker cache for testing
-          tags: ${{ env.PATCH_VERSION_TAG }}
+          tags: ${{ env.PATCH_VERSION_VARIANT_TAG }}
 
       - name: Run Ruby smoke test
         run: |
           expected_output="Hello World!"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts "Hello World!"')
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts "Hello World!"')
           echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
@@ -97,7 +77,7 @@ jobs:
       - name: Run Jemalloc build config smoke test
         run: |
           expected_output="Jemalloc enabled"
-          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
+          actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
           echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
             echo "Failure: expected \"$expected_output\", got \"$actual_output\""
@@ -107,18 +87,38 @@ jobs:
       - name: Run Jemalloc runtime stats smoke test
         run: |
           expected_output_pattern="jemalloc statistics"
-          actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_TAG }} ruby -e 'exit' 2>&1)
+          actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'exit' 2>&1)
           echo "$actual_output"
           if ! echo "$actual_output" | grep -q "$expected_output_pattern"; then
             echo "Failure: expected output to contain \"$expected_output_pattern\""
             exit 1
           fi
 
+      - name: Determine additional image tags
+        run: |
+          if [[ "${{ matrix.variant }}" == alpine* ]]; then
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc"
+          elif [[ "${{ matrix.variant }}" == slim* ]]; then
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc"
+          else
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc"
+          fi
+
+          echo "PATCH_VERSION_TAG=$PATCH_VERSION_TAG" >> $GITHUB_ENV
+          echo "MINOR_VERSION_TAG=$MINOR_VERSION_TAG" >> $GITHUB_ENV
+
       # Comment out below to skip the time-intensive multi-arch build and push
-      - name: Build multi-platform and push to DockerHub
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.minor_version }}/${{ matrix.variant }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.PATCH_VERSION_TAG }},${{ env.MINOR_VERSION_TAG }}
+      # - name: Build multi-platform and push to DockerHub
+        # uses: docker/build-push-action@v6
+        # with:
+          # context: ${{ matrix.minor_version }}/${{ matrix.variant }}
+          # platforms: linux/amd64,linux/arm64
+          # push: true
+          # tags: |
+            # ${{ env.PATCH_VERSION_VARIANT_TAG }}
+            # ${{ env.MINOR_VERSION_VARIANT_TAG }}
+            # ${{ env.PATCH_VERSION_TAG }}
+            # ${{ env.MINOR_VERSION_TAG }}
