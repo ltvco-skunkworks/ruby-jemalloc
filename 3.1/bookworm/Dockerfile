@@ -7,6 +7,13 @@
 FROM buildpack-deps:bookworm
 LABEL maintainer="Chris Hulton <chulton@ltvco.com>, Patrick Tulskie <patrick@ltvco.com>"
 
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libjemalloc-dev \
+	; \
+	apt-mark hold libjemalloc-dev; \
+	rm -rf /var/lib/apt/lists/*
 # skip installing gem documentation
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
