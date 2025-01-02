@@ -35,7 +35,7 @@ jobs:
           echo "matrix=$(echo $matrix | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
-    name: Ruby ${{ matrix.patch_version}} (${{ matrix.variant }}): Build, Test, Push
+    name: "Ruby ${{ matrix.patch_version}} (${{ matrix.variant }}): Build, Test, Push"
     needs: define_matrix
     runs-on: ubuntu-latest
     strategy:
