@@ -2,50 +2,63 @@ name: "Build Test and Push Docker Images"
 
 on:
   workflow_dispatch: # Allows manual triggering from the Actions tab
+  # TODO: Enable the schedule for automated weekly builds
   # schedule:
-  #   - cron: '0 14 * * 1'  # Runs every Monday at 10:00 AM EDT
+    # - cron: '0 13 * * 1'  # 9:00 AM EDT on Monday
 
 jobs:
-  define_jobs:
-    name: Define Jobs
+  define_matrix:
+    name: Define matrix strategy for builds
     runs-on: ubuntu-latest
     outputs:
-      jobs: ${{ steps.generate-jobs.outputs.jobs }}
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Generate jobs
-        id: generate-jobs
+      - name: Generate matrix
+        id: generate-matrix
         run: |
-          jobs=$(jq -c '
-            ["bookworm", "slim-bookworm", "alpine3.20"] as $target_variants |
-            to_entries[] |
-            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview versions like `3.4-rc`
-            select(.value != null) | # Exclude empty versions
-            .value.variants[] as $variant |
-            select($target_variants | index($variant) != null) | # Only include target variants
+          matrix=$(jq -c '
+            ["bookworm", "slim-bookworm", "alpine3.20"] as $supported_variants | # Define supported variants
+            to_entries[] | # Convert `versions.json` object to an array of key-value pairs
+            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview Ruby versions (ex: `3.x-rc`)
+            select(.value != null) | # Exclude undefined Ruby versions (ex: `"3.x": null`)
+            .value.variants[] as $variant | # Iterate over the variants of the remaining Ruby versions
+            select($supported_variants | index($variant) != null) | # Include the variant if supported
             {
               minor_version: .key,
               patch_version: .value.version,
               variant: $variant
             }
           ' versions.json | jq -s '.')
-          echo "jobs=$(echo $jobs | jq -c)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(echo $matrix | jq -c)" >> "$GITHUB_OUTPUT"
 
   build_test_push:
-    name: "Build Test and Push Ruby ${{ matrix.patch_version}} for ${{ matrix.variant }}"
-    needs: define_jobs
+    name: Ruby ${{ matrix.patch_version}} (${{ matrix.variant }}): Build, Test, Push
+    needs: define_matrix
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include: ${{ fromJson(needs.define_jobs.outputs.jobs) }}
+        include: ${{ fromJson(needs.define_matrix.outputs.matrix) }}
     env:
-      PATCH_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc
-      MINOR_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc
+      MINOR_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc # Ex: `ltvco/ruby:3.3-bookworm-jemalloc`
+      PATCH_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc # Ex: `ltvco/ruby:3.3.6-bookworm-jemalloc`
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+
+      # TODO: May need to do something like this to push to the ltvco org
+      # - name: Load secrets
+        # id: load-secrets
+        # uses: ltvco/github-actions/aws-secret-loader@aws-secret-loader-v1
+        # with:
+          # map: |
+            # docker-username:docker-username,
+            # docker-password:docker-password
+          # aws_access_key_id: ${{ secrets.GHA_AWS_ACCESS_KEY }}
+          # aws_secret_access_key: ${{ secrets.GHA_AWS_SECRET_KEY }}
+          # aws_secret_name: github-action-build-args
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
@@ -70,7 +83,7 @@ jobs:
           actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts "Hello World!"')
           echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
-            echo "Failure: expected \"$expected_output\", got \"$actual_output\""
+            echo "Failure for Ruby ${{ matrix.patch_version }} on ${{ matrix.variant }}: expected \"$expected_output\", got \"$actual_output\""
             exit 1
           fi
 
@@ -80,7 +93,7 @@ jobs:
           actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
           echo "$actual_output"
           if [ "$actual_output" != "$expected_output" ]; then
-            echo "Failure: expected \"$expected_output\", got \"$actual_output\""
+            echo "Failure for Ruby ${{ matrix.patch_version }} on ${{ matrix.variant }}: expected \"$expected_output\", got \"$actual_output\""
             exit 1
           fi
 
@@ -90,27 +103,27 @@ jobs:
           actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'exit' 2>&1)
           echo "$actual_output"
           if ! echo "$actual_output" | grep -q "$expected_output_pattern"; then
-            echo "Failure: expected output to contain \"$expected_output_pattern\""
+            echo "Failure for Ruby ${{ matrix.patch_version }} on ${{ matrix.variant }}: expected output to contain \"$expected_output_pattern\""
             exit 1
           fi
 
-      - name: Determine additional image tags
+      - name: Determine broader variant tags
         run: |
           if [[ "${{ matrix.variant }}" == alpine* ]]; then
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc"
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3-alpine-jemalloc`
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3.6-alpine-jemalloc`
           elif [[ "${{ matrix.variant }}" == slim* ]]; then
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc"
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3-slim-jemalloc`
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3.6-slim-jemalloc`
           else
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc"
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc"
+            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc" # Ex: `ltvco/ruby:3.3-jemalloc`
+            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc" # Ex: `ltvco/ruby:3.3.6-jemalloc`
           fi
 
           echo "PATCH_VERSION_TAG=$PATCH_VERSION_TAG" >> $GITHUB_ENV
           echo "MINOR_VERSION_TAG=$MINOR_VERSION_TAG" >> $GITHUB_ENV
 
-      # Comment out below to skip the time-intensive multi-arch build and push
+      # TODO: Remove the `if` condition to build for all variants (too time-consuming for testing)
       - name: Build multi-platform and push to DockerHub
         if: ${{ matrix.minor_version == '3.1' && matrix.variant == 'slim-bookworm' }} # For testing purposes
         uses: docker/build-push-action@v6
@@ -119,7 +132,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.PATCH_VERSION_VARIANT_TAG }}
+            ${{ env.MINOR_VERSION_TAG }}
             ${{ env.MINOR_VERSION_VARIANT_TAG }}
             ${{ env.PATCH_VERSION_TAG }}
-            ${{ env.MINOR_VERSION_TAG }}
+            ${{ env.PATCH_VERSION_VARIANT_TAG }}
