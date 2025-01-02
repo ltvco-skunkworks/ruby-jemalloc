@@ -8,7 +8,7 @@ on:
 
 jobs:
   define_matrix:
-    name: Define matrix strategy for builds
+    name: Define matrix strategy
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
