@@ -120,8 +120,8 @@ jobs:
             PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc" # Ex: `ltvco/ruby:3.3.6-jemalloc`
           fi
 
-          echo "PATCH_VERSION_BASE_TAG=$PATCH_VERSION_BASE_TAG" >> $GITHUB_ENV
           echo "MINOR_VERSION_BASE_TAG=$MINOR_VERSION_BASE_TAG" >> $GITHUB_ENV
+          echo "PATCH_VERSION_BASE_TAG=$PATCH_VERSION_BASE_TAG" >> $GITHUB_ENV
 
       # TODO: Remove the `if` condition to build for all variants (too time-consuming for testing)
       - name: Build multi-platform and push to DockerHub
