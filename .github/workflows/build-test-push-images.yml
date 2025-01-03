@@ -102,7 +102,7 @@ jobs:
           expected_output_pattern="jemalloc statistics"
           actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'exit' 2>&1)
           echo "$actual_output"
-          if ! echo "$actual_output" | grep -q "$expected_output_pattern"; then
+          if ! grep -q "$expected_output_pattern" <<< "$actual_output"; then
             echo "Failure for Ruby ${{ matrix.patch_version }} on ${{ matrix.variant }}: expected output to contain \"$expected_output_pattern\""
             exit 1
           fi
