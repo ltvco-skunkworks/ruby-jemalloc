@@ -77,7 +77,7 @@ jobs:
           load: true # Load the image into the local Docker cache for testing
           tags: ${{ env.PATCH_VERSION_VARIANT_TAG }}
 
-      - name: Run Ruby smoke test
+      - name: Verify Ruby installation
         run: |
           expected_output="Hello World!"
           actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts "Hello World!"')
@@ -87,7 +87,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run Jemalloc build config smoke test
+      - name: Verify Jemalloc in Ruby build configuration
         run: |
           expected_output="Jemalloc enabled"
           actual_output=$(docker run --rm ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'puts RbConfig::CONFIG["MAINLIBS"].include?("jemalloc") ? "Jemalloc enabled" : "Jemalloc missing"')
@@ -97,7 +97,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run Jemalloc runtime stats smoke test
+      - name: Verify Jemalloc runtime statistics
         run: |
           expected_output_pattern="jemalloc statistics"
           actual_output=$(docker run --rm -e MALLOC_CONF=stats_print:true ${{ env.PATCH_VERSION_VARIANT_TAG }} ruby -e 'exit' 2>&1)
@@ -107,21 +107,21 @@ jobs:
             exit 1
           fi
 
-      - name: Determine broader variant tags
+      - name: Determine base variant tags
         run: |
           if [[ "${{ matrix.variant }}" == alpine* ]]; then
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3-alpine-jemalloc`
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3.6-alpine-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3-alpine-jemalloc`
+            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3.6-alpine-jemalloc`
           elif [[ "${{ matrix.variant }}" == slim* ]]; then
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3-slim-jemalloc`
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3.6-slim-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3-slim-jemalloc`
+            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3.6-slim-jemalloc`
           else
-            MINOR_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc" # Ex: `ltvco/ruby:3.3-jemalloc`
-            PATCH_VERSION_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc" # Ex: `ltvco/ruby:3.3.6-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc" # Ex: `ltvco/ruby:3.3-jemalloc`
+            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc" # Ex: `ltvco/ruby:3.3.6-jemalloc`
           fi
 
-          echo "PATCH_VERSION_TAG=$PATCH_VERSION_TAG" >> $GITHUB_ENV
-          echo "MINOR_VERSION_TAG=$MINOR_VERSION_TAG" >> $GITHUB_ENV
+          echo "PATCH_VERSION_BASE_TAG=$PATCH_VERSION_BASE_TAG" >> $GITHUB_ENV
+          echo "MINOR_VERSION_BASE_TAG=$MINOR_VERSION_BASE_TAG" >> $GITHUB_ENV
 
       # TODO: Remove the `if` condition to build for all variants (too time-consuming for testing)
       - name: Build multi-platform and push to DockerHub
@@ -132,7 +132,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.MINOR_VERSION_TAG }}
+            ${{ env.MINOR_VERSION_BASE_TAG }}
             ${{ env.MINOR_VERSION_VARIANT_TAG }}
-            ${{ env.PATCH_VERSION_TAG }}
+            ${{ env.PATCH_VERSION_BASE_TAG }}
             ${{ env.PATCH_VERSION_VARIANT_TAG }}
