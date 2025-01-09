@@ -4,7 +4,7 @@
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
 
-FROM alpine:3.20
+FROM alpine:3.21
 LABEL maintainer="Chris Hulton <chulton@ltvco.com>, Patrick Tulskie <patrick@ltvco.com>"
 
 RUN set -eux; \
@@ -19,20 +19,17 @@ RUN set -eux; \
 		zlib-dev \
 	;
 
-# skip installing gem documentation
+# skip installing gem documentation with `gem install`/`gem update`
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
-	{ \
-		echo 'install: --no-document'; \
-		echo 'update: --no-document'; \
-	} >> /usr/local/etc/gemrc
+	echo 'gem: --no-document' >> /usr/local/etc/gemrc
 
 ENV LANG C.UTF-8
 
-# https://www.ruby-lang.org/en/news/2024/12/12/ruby-3-4-0-rc1-released/
-ENV RUBY_VERSION 3.4.0-rc1
-ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.0-rc1.tar.xz
-ENV RUBY_DOWNLOAD_SHA256 9c54225747f7a786727aa6213503083d5d8ff7097505d4b7456ff60880ee4a17
+# https://www.ruby-lang.org/en/news/2024/11/05/ruby-3-3-6-released/
+ENV RUBY_VERSION 3.3.6
+ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.3/ruby-3.3.6.tar.xz
+ENV RUBY_DOWNLOAD_SHA256 540975969d1af42190d26ff629bc93b1c3f4bffff4ab253e245e125085e66266
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -105,9 +102,6 @@ RUN set -eux; \
 	echo '3ab628a51d92fdf0d2b5835e93564857aea73e0c1de00313864a94a6255cb645 *thread-stack-fix.patch' | sha256sum --check --strict; \
 	patch -p1 -i thread-stack-fix.patch; \
 	rm thread-stack-fix.patch; \
-	\
-# the configure script does not detect isnan/isinf as macros
-	export ac_cv_func_isnan=yes ac_cv_func_isinf=yes; \
 	\
 # hack in "ENABLE_PATH_CHECK" disabling to suppress:
 #   warning: Insecure world writable dir

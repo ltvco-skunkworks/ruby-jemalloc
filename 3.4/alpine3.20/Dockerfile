@@ -4,70 +4,71 @@
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
 
-FROM debian:bullseye-slim
+FROM alpine:3.20
 LABEL maintainer="Chris Hulton <chulton@ltvco.com>, Patrick Tulskie <patrick@ltvco.com>"
 
 RUN set -eux; \
-	apt-get update; \
-	apt-get install -y --no-install-recommends \
+	apk add --no-cache \
 		bzip2 \
 		ca-certificates \
+		gmp-dev \
+		jemalloc-dev \
 		libffi-dev \
-		libgmp-dev \
-		libjemalloc-dev \
-		libssl-dev \
-		libyaml-dev \
 		procps \
-		zlib1g-dev \
-	; \
-	apt-mark hold libjemalloc-dev; \
-	rm -rf /var/lib/apt/lists/*
+		yaml-dev \
+		zlib-dev \
+	;
 
-# skip installing gem documentation
+# skip installing gem documentation with `gem install`/`gem update`
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
-	{ \
-		echo 'install: --no-document'; \
-		echo 'update: --no-document'; \
-	} >> /usr/local/etc/gemrc
+	echo 'gem: --no-document' >> /usr/local/etc/gemrc
 
 ENV LANG C.UTF-8
 
-# https://www.ruby-lang.org/en/news/2024/12/12/ruby-3-4-0-rc1-released/
-ENV RUBY_VERSION 3.4.0-rc1
-ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.0-rc1.tar.xz
-ENV RUBY_DOWNLOAD_SHA256 9c54225747f7a786727aa6213503083d5d8ff7097505d4b7456ff60880ee4a17
+# https://www.ruby-lang.org/en/news/2024/12/25/ruby-3-4-1-released/
+ENV RUBY_VERSION 3.4.1
+ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.1.tar.xz
+ENV RUBY_DOWNLOAD_SHA256 018d59ffb52be3c0a6d847e22d3fd7a2c52d0ddfee249d3517a0c8c6dbfa70af
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
 RUN set -eux; \
 	\
-	savedAptMark="$(apt-mark showmanual)"; \
-	apt-get update; \
-	apt-get install -y --no-install-recommends \
-		dpkg-dev \
-		libgdbm-dev \
-		ruby \
+	apk add --no-cache --virtual .ruby-builddeps \
 		autoconf \
+		bzip2 \
+		bzip2-dev \
+		ca-certificates \
+		coreutils \
+		dpkg-dev dpkg \
 		g++ \
 		gcc \
-		libbz2-dev \
-		libgdbm-compat-dev \
-		libglib2.0-dev \
-		libncurses-dev \
+		gdbm-dev \
+		glib-dev \
+		libc-dev \
+		libffi-dev \
 		libxml2-dev \
 		libxslt-dev \
+		linux-headers \
 		make \
-		wget \
-		xz-utils \
+		ncurses-dev \
+		openssl \
+		openssl-dev \
+		patch \
+		procps \
+		ruby \
+		tar \
+		xz \
+		yaml-dev \
+		zlib-dev \
 	; \
-	rm -rf /var/lib/apt/lists/*; \
 	\
 	rustArch=; \
-	dpkgArch="$(dpkg --print-architecture)"; \
-	case "$dpkgArch" in \
-		'amd64') rustArch='x86_64-unknown-linux-gnu'; rustupUrl='https://static.rust-lang.org/rustup/archive/1.26.0/x86_64-unknown-linux-gnu/rustup-init'; rustupSha256='0b2f6c8f85a3d02fde2efc0ced4657869d73fccfce59defb4e8d29233116e6db' ;; \
-		'arm64') rustArch='aarch64-unknown-linux-gnu'; rustupUrl='https://static.rust-lang.org/rustup/archive/1.26.0/aarch64-unknown-linux-gnu/rustup-init'; rustupSha256='673e336c81c65e6b16dcdede33f4cc9ed0f08bde1dbe7a935f113605292dc800' ;; \
+	apkArch="$(apk --print-arch)"; \
+	case "$apkArch" in \
+		'x86_64') rustArch='x86_64-unknown-linux-musl'; rustupUrl='https://static.rust-lang.org/rustup/archive/1.26.0/x86_64-unknown-linux-musl/rustup-init'; rustupSha256='7aa9e2a380a9958fc1fc426a3323209b2c86181c6816640979580f62ff7d48d4' ;; \
+		'aarch64') rustArch='aarch64-unknown-linux-musl'; rustupUrl='https://static.rust-lang.org/rustup/archive/1.26.0/aarch64-unknown-linux-musl/rustup-init'; rustupSha256='b1962dfc18e1fd47d01341e6897cace67cddfabf547ef394e8883939bd6e002e' ;; \
 	esac; \
 	\
 	if [ -n "$rustArch" ]; then \
@@ -94,6 +95,14 @@ RUN set -eux; \
 	\
 	cd /usr/src/ruby; \
 	\
+# https://github.com/docker-library/ruby/issues/196
+# https://bugs.ruby-lang.org/issues/14387#note-13 (patch source)
+# https://bugs.ruby-lang.org/issues/14387#note-16 ("Therefore ncopa's patch looks good for me in general." -- only breaks glibc which doesn't matter here)
+	wget -O 'thread-stack-fix.patch' 'https://bugs.ruby-lang.org/attachments/download/7081/0001-thread_pthread.c-make-get_main_stack-portable-on-lin.patch'; \
+	echo '3ab628a51d92fdf0d2b5835e93564857aea73e0c1de00313864a94a6255cb645 *thread-stack-fix.patch' | sha256sum --check --strict; \
+	patch -p1 -i thread-stack-fix.patch; \
+	rm thread-stack-fix.patch; \
+	\
 # hack in "ENABLE_PATH_CHECK" disabling to suppress:
 #   warning: Insecure world writable dir
 	{ \
@@ -116,22 +125,25 @@ RUN set -eux; \
 	make install; \
 	\
 	rm -rf /tmp/rust; \
-	apt-mark auto '.*' > /dev/null; \
-	apt-mark manual $savedAptMark > /dev/null; \
-	find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec ldd '{}' ';' \
-		| awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
-		| sort -u \
-		| xargs -r dpkg-query --search \
-		| cut -d: -f1 \
-		| sort -u \
-		| xargs -r apt-mark manual \
-	; \
-	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+	runDeps="$( \
+		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+			| tr ',' '\n' \
+			| sort -u \
+			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+	)"; \
+	apk add --no-network --virtual .ruby-rundeps $runDeps; \
+	apk del --no-network .ruby-builddeps; \
 	\
 	cd /; \
 	rm -r /usr/src/ruby; \
 # verify we have no "ruby" packages installed
-	if dpkg -l | grep -i ruby; then exit 1; fi; \
+	if \
+		apk --no-network list --installed \
+			| grep -v '^[.]ruby-rundeps' \
+			| grep -i ruby \
+	; then \
+		exit 1; \
+	fi; \
 	[ "$(command -v ruby)" = '/usr/local/bin/ruby' ]; \
 # rough smoke test
 	ruby --version; \

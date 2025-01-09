@@ -4,30 +4,36 @@
 # PLEASE DO NOT EDIT IT DIRECTLY.
 #
 
-FROM buildpack-deps:bookworm
+FROM debian:bullseye-slim
 LABEL maintainer="Chris Hulton <chulton@ltvco.com>, Patrick Tulskie <patrick@ltvco.com>"
 
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
+		bzip2 \
+		ca-certificates \
+		libffi-dev \
+		libgmp-dev \
 		libjemalloc-dev \
+		libssl-dev \
+		libyaml-dev \
+		procps \
+		zlib1g-dev \
 	; \
 	apt-mark hold libjemalloc-dev; \
 	rm -rf /var/lib/apt/lists/*
-# skip installing gem documentation
+
+# skip installing gem documentation with `gem install`/`gem update`
 RUN set -eux; \
 	mkdir -p /usr/local/etc; \
-	{ \
-		echo 'install: --no-document'; \
-		echo 'update: --no-document'; \
-	} >> /usr/local/etc/gemrc
+	echo 'gem: --no-document' >> /usr/local/etc/gemrc
 
 ENV LANG C.UTF-8
 
-# https://www.ruby-lang.org/en/news/2024/12/12/ruby-3-4-0-rc1-released/
-ENV RUBY_VERSION 3.4.0-rc1
-ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.0-rc1.tar.xz
-ENV RUBY_DOWNLOAD_SHA256 9c54225747f7a786727aa6213503083d5d8ff7097505d4b7456ff60880ee4a17
+# https://www.ruby-lang.org/en/news/2024/12/25/ruby-3-4-1-released/
+ENV RUBY_VERSION 3.4.1
+ENV RUBY_DOWNLOAD_URL https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.1.tar.xz
+ENV RUBY_DOWNLOAD_SHA256 018d59ffb52be3c0a6d847e22d3fd7a2c52d0ddfee249d3517a0c8c6dbfa70af
 
 # some of ruby's build scripts are written in ruby
 #   we purge system ruby later to make sure our final image uses what we just built
@@ -39,6 +45,18 @@ RUN set -eux; \
 		dpkg-dev \
 		libgdbm-dev \
 		ruby \
+		autoconf \
+		g++ \
+		gcc \
+		libbz2-dev \
+		libgdbm-compat-dev \
+		libglib2.0-dev \
+		libncurses-dev \
+		libxml2-dev \
+		libxslt-dev \
+		make \
+		wget \
+		xz-utils \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\

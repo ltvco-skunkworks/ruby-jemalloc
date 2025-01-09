@@ -88,8 +88,8 @@ for version in "${versions[@]}"; do
 				empty # trailing comma hack
 			| ., "slim-" + .), # https://github.com/docker-library/ruby/pull/142#issuecomment-320012893
 			(
+				"3.21",
 				"3.20",
-				"3.19",
 				empty # trailing comma hack
 			| "alpine" + .)
 		]
@@ -100,13 +100,13 @@ for version in "${versions[@]}"; do
 		*)
 			# YJIT
 			doc="$(jq <<<"$doc" -sc '
-				.[1][].arches? |= if . then with_entries(select(.key as $arch | [
+				.[1][].arches? |= if . then with_entries(select(.key | IN(
 					# https://github.com/ruby/ruby/blob/v3_2_0/doc/yjit/yjit.md ("currently supported for macOS and Linux on x86-64 and arm64/aarch64 CPUs")
 					# https://github.com/ruby/ruby/blob/v3_2_0/configure.ac#L3757-L3761
 					"amd64",
 					"arm64v8",
 					empty # trailing comma
-				] | index($arch))) else empty end
+				))) else empty end
 				| add
 			' - rust.json)"
 			;;
