@@ -6,6 +6,10 @@ on:
   # schedule:
     # - cron: '0 13 * * 1'  # 9:00 AM EDT on Monday
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # `ltvco/ruby-jemalloc`
+
 jobs:
   define_matrix:
     name: Define matrix strategy
@@ -45,8 +49,6 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.define_matrix.outputs.matrix) }}
     env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }} # `ltvco/ruby-jemalloc`
       MINOR_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-bookworm`
       PATCH_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-bookworm`
     steps:
