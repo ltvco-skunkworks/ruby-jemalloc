@@ -142,8 +142,4 @@ jobs:
           context: ${{ matrix.minor_version }}/${{ matrix.variant }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.MINOR_VERSION_BASE_TAG }}
-            ${{ env.MINOR_VERSION_VARIANT_TAG }}
-            ${{ env.PATCH_VERSION_BASE_TAG }}
-            ${{ env.PATCH_VERSION_VARIANT_TAG }}
+          tags: ${{ env.PATCH_VERSION_VARIANT_TAG }},${{ env.MINOR_VERSION_VARIANT_TAG }},${{ env.PATCH_VERSION_BASE_TAG }},${{ env.MINOR_VERSION_BASE_TAG }}
