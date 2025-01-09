@@ -6,10 +6,6 @@ on:
   # schedule:
     # - cron: '0 13 * * 1'  # 9:00 AM EDT on Monday
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }} # `ltvco/ruby-jemalloc`
-
 jobs:
   define_matrix:
     name: Define matrix strategy
@@ -24,12 +20,18 @@ jobs:
         id: generate-matrix
         run: |
           matrix=$(jq -c '
-            ["bookworm", "slim-bookworm", "alpine3.20"] as $supported_variants | # Define supported variants
-            to_entries[] | # Convert `versions.json` object to an array of key-value pairs
-            select(.key | test("^\\d+\\.\\d+$")) | # Exclude preview Ruby versions (ex: `3.x-rc`)
-            select(.value != null) | # Exclude undefined Ruby versions (ex: `"3.x": null`)
-            .value.variants[] as $variant | # Iterate over the variants of the remaining Ruby versions
-            select($supported_variants | index($variant) != null) | # Include the variant if supported
+            # Define supported variants
+            ["bookworm", "slim-bookworm", "alpine3.20"] as $supported_variants |
+            # Convert `versions.json` object to an array of key-value pairs
+            to_entries[] |
+            # Exclude preview Ruby versions (Ex: `3.x-rc`)
+            select(.key | test("^\\d+\\.\\d+$")) |
+            # Exclude undefined Ruby versions (Ex: `"3.x": null`)
+            select(.value != null) |
+            # Iterate over the variants of the remaining Ruby versions
+            .value.variants[] as $variant |
+            # Include the variant if supported
+            select($supported_variants | index($variant) != null) |
             {
               minor_version: .key,
               patch_version: .value.version,
@@ -49,8 +51,8 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.define_matrix.outputs.matrix) }}
     env:
-      MINOR_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-bookworm`
-      PATCH_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-bookworm`
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -64,6 +66,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Determine specific variant tags
+        run: |
+          # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-bookworm`
+          echo "MINOR_VERSION_VARIANT_TAG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-${{ matrix.variant }}" >> $GITHUB_ENV
+          # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-bookworm`
+          echo "PATCH_VERSION_VARIANT_TAG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-${{ matrix.variant }}" >> $GITHUB_ENV
 
       # Ref: https://docs.docker.com/build/ci/github-actions/test-before-push/
       - name: Build and export to local Docker cache
@@ -106,14 +115,20 @@ jobs:
       - name: Determine base variant tags
         run: |
           if [[ "${{ matrix.variant }}" == alpine* ]]; then
-            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-alpine" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-alpine`
-            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-alpine" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-alpine`
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-alpine`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-alpine"
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-alpine`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-alpine"
           elif [[ "${{ matrix.variant }}" == slim* ]]; then
-            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-slim" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-slim`
-            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-slim" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-slim`
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-slim`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-slim"
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-slim`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-slim"
           else
-            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3`
-            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6`
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}"
+            # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}"
           fi
 
           echo "MINOR_VERSION_BASE_TAG=$MINOR_VERSION_BASE_TAG" >> $GITHUB_ENV
