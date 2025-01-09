@@ -21,7 +21,7 @@ jobs:
         run: |
           matrix=$(jq -c '
             # Define supported variants
-            ["bookworm", "slim-bookworm", "alpine3.20"] as $supported_variants |
+            ["bookworm", "slim-bookworm", "alpine3.21"] as $supported_variants |
             # Convert `versions.json` object to an array of key-value pairs
             to_entries[] |
             # Exclude preview Ruby versions (Ex: `3.x-rc`)
