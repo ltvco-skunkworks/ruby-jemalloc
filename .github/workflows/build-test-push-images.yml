@@ -38,33 +38,27 @@ jobs:
     name: "Ruby ${{ matrix.patch_version}} (${{ matrix.variant }}): Build, Test, Push"
     needs: define_matrix
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         include: ${{ fromJson(needs.define_matrix.outputs.matrix) }}
     env:
-      MINOR_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-${{ matrix.variant }}-jemalloc # Ex: `ltvco/ruby:3.3-bookworm-jemalloc`
-      PATCH_VERSION_VARIANT_TAG: ${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-${{ matrix.variant }}-jemalloc # Ex: `ltvco/ruby:3.3.6-bookworm-jemalloc`
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }} # `ltvco/ruby-jemalloc`
+      MINOR_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-bookworm`
+      PATCH_VERSION_VARIANT_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-${{ matrix.variant }} # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-bookworm`
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # TODO: May need to do something like this to push to the ltvco org
-      # - name: Load secrets
-        # id: load-secrets
-        # uses: ltvco/github-actions/aws-secret-loader@aws-secret-loader-v1
-        # with:
-          # map: |
-            # docker-username:docker-username,
-            # docker-password:docker-password
-          # aws_access_key_id: ${{ secrets.GHA_AWS_ACCESS_KEY }}
-          # aws_secret_access_key: ${{ secrets.GHA_AWS_SECRET_KEY }}
-          # aws_secret_name: github-action-build-args
-
-      - name: Log in to DockerHub
+      - name: Log in to the container registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -110,21 +104,21 @@ jobs:
       - name: Determine base variant tags
         run: |
           if [[ "${{ matrix.variant }}" == alpine* ]]; then
-            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3-alpine-jemalloc`
-            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-alpine-jemalloc" # Ex: `ltvco/ruby:3.3.6-alpine-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-alpine" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-alpine`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-alpine" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-alpine`
           elif [[ "${{ matrix.variant }}" == slim* ]]; then
-            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3-slim-jemalloc`
-            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-slim-jemalloc" # Ex: `ltvco/ruby:3.3.6-slim-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}-slim" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3-slim`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}-slim" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6-slim`
           else
-            MINOR_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.minor_version }}-jemalloc" # Ex: `ltvco/ruby:3.3-jemalloc`
-            PATCH_VERSION_BASE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/ruby:${{ matrix.patch_version }}-jemalloc" # Ex: `ltvco/ruby:3.3.6-jemalloc`
+            MINOR_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.minor_version }}" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3`
+            PATCH_VERSION_BASE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.patch_version }}" # Ex: `ghcr.io/ltvco/ruby-jemalloc:3.3.6`
           fi
 
           echo "MINOR_VERSION_BASE_TAG=$MINOR_VERSION_BASE_TAG" >> $GITHUB_ENV
           echo "PATCH_VERSION_BASE_TAG=$PATCH_VERSION_BASE_TAG" >> $GITHUB_ENV
 
       # TODO: Remove the `if` condition to build for all variants (too time-consuming for testing)
-      - name: Build multi-platform and push to DockerHub
+      - name: Build multi-platform and push to container registry
         if: ${{ matrix.minor_version == '3.1' && matrix.variant == 'slim-bookworm' }} # For testing purposes
         uses: docker/build-push-action@v6
         with:
