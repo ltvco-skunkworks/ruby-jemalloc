@@ -10,17 +10,8 @@ LABEL maintainer="Chris Hulton <chulton@ltvco.com>, Patrick Tulskie <patrick@ltv
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		bzip2 \
 		ca-certificates \
-		libffi-dev \
-		libgmp-dev \
-		libjemalloc-dev \
-		libssl-dev \
-		libyaml-dev \
-		procps \
-		zlib1g-dev \
 	; \
-	apt-mark hold libjemalloc-dev; \
 	rm -rf /var/lib/apt/lists/*
 
 # skip installing gem documentation with `gem install`/`gem update`
@@ -45,21 +36,29 @@ RUN set -eux; \
 		bison \
 		dpkg-dev \
 		libgdbm-dev \
+		libjemalloc-dev \
 		ruby \
 		autoconf \
+		bzip2 \
 		g++ \
 		gcc \
 		libbz2-dev \
+		libffi-dev \
 		libgdbm-compat-dev \
 		libglib2.0-dev \
+		libgmp-dev \
 		libncurses-dev \
 		libreadline-dev \
+		libssl-dev \
 		libxml2-dev \
 		libxslt-dev \
+		libyaml-dev \
 		make \
 		wget \
 		xz-utils \
+		zlib1g-dev \
 	; \
+	apt-mark hold libjemalloc-dev; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
 	wget -O ruby.tar.xz "$RUBY_DOWNLOAD_URL"; \
