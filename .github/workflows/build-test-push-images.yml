@@ -9,7 +9,7 @@ on:
 jobs:
   define_matrix:
     name: Define matrix strategy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Avoids core dump issue introduced in ubuntu-24.04 (20250126.1.0)
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
